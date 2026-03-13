@@ -3,7 +3,6 @@
  * Utility functions and helpers
  */
 
-export { Logger, createLogger, LogLevel, globalLogger } from './logger';
 export {
   calculateWaitTime,
   calculateWaitTimeBatch,

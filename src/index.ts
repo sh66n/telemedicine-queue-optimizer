@@ -26,8 +26,7 @@ export type {
 export { DEFAULT_CONFIG, validateConfig } from './config/defaults';
 
 // Utility exports
-export { Logger, createLogger } from './utils/logger';
 
 // Version
 export const VERSION = '1.0.0';
-export const PACKAGE_NAME = '@telemedicine/queue-optimizer';
+export const PACKAGE_NAME = '@sh66n/telemedicine-queue-optimizer';
