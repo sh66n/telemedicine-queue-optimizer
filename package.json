@@ -1,5 +1,5 @@
 {
-  "name": "@telemedicine/queue-optimizer",
+  "name": "@sh66n/telemedicine-queue-optimizer",
   "version": "1.0.0",
   "description": "Intelligent queue optimization system for telemedicine platforms. Reduces wait times, improves fairness, and optimizes doctor utilization using ML-based priority scoring.",
   "main": "dist/index.js",
