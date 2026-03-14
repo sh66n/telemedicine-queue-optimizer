@@ -1,26 +1,6 @@
-# Telemedicine Queue Optimizer
+# @sh66n/telemedicine-queue-optimizer
 
-[![npm version](https://img.shields.io/npm/v/@sh66n/telemedicine-queue-optimizer)](https://www.npmjs.com/package/@sh66n/telemedicine-queue-optimizer)
-[![npm downloads](https://img.shields.io/npm/dm/@sh66n/telemedicine-queue-optimizer)](https://www.npmjs.com/package/@sh66n/telemedicine-queue-optimizer)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![TypeScript](https://img.shields.io/badge/types-TypeScript-blue)](https://www.typescriptlang.org/)
-
-Intelligent queue optimization for telemedicine platforms.
-Reduces patient wait times while preserving fairness and respecting medical urgency.
-
----
-
-## Overview
-
-Telemedicine systems often rely on simple FIFO queues, which can lead to long waits, poor prioritization of urgent cases, and inefficient doctor utilization.
-
-This library provides a priority-based scheduling system designed for healthcare queues. It combines severity, waiting time, and fairness adjustments to produce optimized queue ordering.
-
-The optimizer is lightweight, dependency-free, and designed for integration in Node.js services, backend APIs, or web applications.
-
----
-
-## Installation
+Priority queue scheduling for telemedicine. Moves urgent patients up without starving everyone else.
 
 ```bash
 npm install @sh66n/telemedicine-queue-optimizer
@@ -28,58 +8,9 @@ npm install @sh66n/telemedicine-queue-optimizer
 
 ---
 
-## Quick Example
+## Usage
 
-```ts
-import { QueueOptimizer } from '@sh66n/telemedicine-queue-optimizer';
-
-const patients = [
-  {
-    id: 'P001',
-    arrivalTime: new Date(Date.now() - 45 * 60000).toISOString(),
-    severity: 'high',
-    waitTime: 45
-  },
-  {
-    id: 'P002',
-    arrivalTime: new Date(Date.now() - 60 * 60000).toISOString(),
-    severity: 'low',
-    waitTime: 60
-  }
-];
-
-const optimizer = new QueueOptimizer();
-
-const optimizedQueue = optimizer.optimize(patients);
-
-console.log(optimizedQueue);
-```
-
----
-
-## Simulation
-
-The simulator allows comparison between baseline FIFO ordering and optimized queue ordering.
-
-```ts
-import { QueueSimulator } from '@sh66n/telemedicine-queue-optimizer';
-
-const simulator = new QueueSimulator();
-
-const result = simulator.simulate(patients);
-
-console.log(result.baselineMetrics.averageWaitTime);
-console.log(result.optimizedMetrics.averageWaitTime);
-console.log(result.improvements);
-```
-
----
-
-## Configuration
-
-Queue behavior can be tuned using weights and waiting thresholds.
-
-```ts
+```typescript
 import { QueueOptimizer } from '@sh66n/telemedicine-queue-optimizer';
 
 const optimizer = new QueueOptimizer({
@@ -88,72 +19,109 @@ const optimizer = new QueueOptimizer({
   fairnessWeight: 0.2,
   maxWaitTimeForHighPriority: 20,
   maxWaitTimeForMediumPriority: 40,
-  maxWaitTimeForLowPriority: 60
+  maxWaitTimeForLowPriority: 60,
 });
+
+const optimized = optimizer.optimize(patients);
 ```
 
 ---
 
 ## API
 
-### QueueOptimizer
+### `new QueueOptimizer(config)`
 
-Primary class responsible for calculating queue priority.
+| Field | Type | Description |
+|---|---|---|
+| `severityWeight` | number | Weight for severity score (0–1) |
+| `waitTimeWeight` | number | Weight for wait time score (0–1) |
+| `fairnessWeight` | number | Reserved; used in weight validation (0–1) |
+| `maxWaitTimeForHighPriority` | number | Minutes before fairness boost kicks in |
+| `maxWaitTimeForMediumPriority` | number | Same for medium |
+| `maxWaitTimeForLowPriority` | number | Same for low |
 
-```
-constructor(config?: Partial<QueueOptimizationConfig>)
-
-optimize(patients: Patient[]): Patient[]
-
-generateQueueOrder(
-  patients: Patient[],
-  startTime?: Date
-): QueueOrder[]
-
-compareQueues(patients: Patient[]): {
-  baseline: QueueOrder[]
-  optimized: QueueOrder[]
-}
-
-getConfig(): QueueOptimizationConfig
-
-setConfig(config: Partial<QueueOptimizationConfig>): void
-
-debugScores(patients: Patient[]): Array<{
-  patient: Patient
-  explanation: string
-}>
-```
-
-### QueueSimulator
-
-Runs full simulations and generates performance metrics.
-
-```
-constructor(config?: Partial<QueueOptimizationConfig>)
-
-simulate(patients: Patient[]): OptimizationResult
-```
+> Weights must sum to `1.0`.
 
 ---
 
-## Data Types
+### Methods
 
-### Patient
+#### `optimize(patients)` → `Patient[]`
+Reorders patients by priority score. Does not mutate input.
 
-```ts
-interface Patient {
-  id: string
-  arrivalTime: string
-  severity: 'low' | 'medium' | 'high'
-  waitTime?: number
-  estimatedDuration?: number
+#### `generateQueueOrder(patients, startTime?)` → `QueueOrder[]`
+Attaches estimated start/end/wait times. Pass the result of `optimize()`, not raw patients.
+
+#### `compareQueues(patients, startTime?)` → `ComparisonResult`
+Runs FIFO and optimized side by side. Returns both queues with metrics and improvement deltas.
+
+```typescript
+const { baseline, optimized, improvements } = optimizer.compareQueues(patients);
+// baseline.queue, baseline.metrics
+// optimized.queue, optimized.metrics
+// improvements.waitTimeReduction, improvements.fairnessImprovement
+```
+
+#### `getScores(patients)` → `Array<{ patientId, score, explanation }>`
+Shows why each patient ranked where they did.
+
+#### `validate(patients)` → `{ valid, errors[] }`
+Validates config weights and patient fields before running.
+
+#### `getConfig()` → `QueueOptimizationConfig`
+#### `setConfig(partial)` → `void`
+
+---
+
+### `new QueueSimulator(config)`
+
+Wraps `QueueOptimizer` with richer output — recommendations, HTML reports, multi-config testing.
+
+#### `simulate(patients, startTime?)` → `OptimizationResult`
+
+```typescript
+{
+  baselineQueue: QueueOrder[],
+  optimizedQueue: QueueOrder[],
+  baselineMetrics: Metrics,
+  optimizedMetrics: Metrics,
+  improvements: {
+    waitTimeReduction: string,
+    fairnessImprovement: string,
+    utilizationImprovement: string,
+    throughputImprovement: string,
+  },
+  recommendations: string[]
 }
 ```
 
-### QueueOrder
+#### `simulateWithConfig(patients, config)` → `OptimizationResult`
+One-off simulation with a different config, without mutating the instance.
 
-```ts
+#### `runMultipleSimulations(patients, configs[])` → `Array<{ name, result }>`
+Test multiple configs at once.
+
+#### `compareCustomQueues(baseline, optimized)` → `{ baselineMetrics, optimizedMetrics, improvements }`
+Compare two arbitrary patient orderings you supply yourself.
+
+#### `getDetailedMetrics(queueOrders)` → `{ byPosition[], bySeverity }`
+#### `exportResult(result)` → `string` (full JSON)
+#### `exportSummary(result)` → `string` (compact JSON)
+#### `generateHTMLReport(result)` → `string`
+
+---
+
+## Types
+
+```typescript
+interface Patient {
+  id: string
+  arrivalTime: string                    // ISO 8601
+  severity: 'low' | 'medium' | 'high'
+  waitTime?: number                      // minutes; calculated from arrivalTime if omitted
+  estimatedDuration?: number             // minutes; predicted from severity if omitted
+}
+
 interface QueueOrder {
   position: number
   patient: Patient
@@ -161,126 +129,49 @@ interface QueueOrder {
   estimatedEndTime: Date
   estimatedWaitTime: number
 }
-```
 
-### Metrics
-
-```ts
 interface Metrics {
   averageWaitTime: number
   maxWaitTime: number
   minWaitTime: number
-  fairnessScore: number
-  doctorUtilization: number
-  throughput: number
+  fairnessScore: number        // 0–100
+  doctorUtilization: number    // 0–100
+  throughput: number           // patients/hour
 }
 ```
 
 ---
 
-## Algorithm
-
-Each patient receives a priority score based on three factors:
-
-* Severity level
-* Waiting time
-* Fairness adjustment
-
-Priority score:
+## How scoring works
 
 ```
-Score = (SeverityWeight × SeverityScore)
-      + (WaitTimeWeight × WaitScore)
-      + (FairnessWeight × FairnessBoost)
+score = (severityScore × severityWeight + waitScore × waitTimeWeight) × fairnessBoost
 ```
 
-Severity scores:
+| Severity | Base score |
+|---|---|
+| high | 150 |
+| medium | 75 |
+| low | 25 |
 
-```
-High    → 150
-Medium  → 75
-Low     → 25
-```
-
-Fairness boosting ensures patients waiting beyond configured thresholds gradually increase in priority, preventing starvation.
-
-Patients are then sorted by score to generate the optimized queue.
+`fairnessBoost` starts at `1`. Once `waitTime` exceeds the threshold for that severity, it grows as `1 + (excess / 30)` — preventing low-severity patients from waiting indefinitely.
 
 ---
 
-## Integration Example (Express)
+## Duration prediction
 
-```ts
-import express from 'express'
-import { QueueSimulator } from '@sh66n/telemedicine-queue-optimizer'
+If `estimatedDuration` is not set, it's predicted automatically:
 
-const app = express()
-const simulator = new QueueSimulator()
+| Severity | Base | Variance |
+|---|---|---|
+| high | 25 min | ±5 min |
+| medium | 20 min | ±5 min |
+| low | 12 min | ±5 min |
 
-app.post('/optimize', express.json(), (req, res) => {
-  const result = simulator.simulate(req.body.patients)
-  res.json(result)
-})
-
-app.listen(3000)
-```
-
----
-
-## Validation
-
-```ts
-import { validateConfig } from '@sh66n/telemedicine-queue-optimizer'
-
-const validation = validateConfig({
-  severityWeight: 0.5,
-  waitTimeWeight: 0.3,
-  fairnessWeight: 0.2
-})
-
-if (!validation.valid) {
-  console.error(validation.errors)
-}
-```
-
----
-
-## Development
-
-Install dependencies:
-
-```
-npm install
-```
-
-Run tests:
-
-```
-npm test
-```
-
-Build:
-
-```
-npm run build
-```
+Set `estimatedDuration` explicitly on every patient for deterministic timing.
 
 ---
 
 ## License
 
-MIT License.
-
----
-
-## Contributing
-
-Contributions are welcome.
-Open an issue or submit a pull request if you would like to improve the optimizer or add new scheduling strategies.
-
----
-
-## Links
-
-npm: https://www.npmjs.com/package/@sh66n/telemedicine-queue-optimizer
-repository: https://github.com/sh66n/telemedicine-queue-optimizer
+MIT
