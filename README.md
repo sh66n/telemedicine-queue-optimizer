@@ -142,19 +142,73 @@ interface Metrics {
 
 ---
 
-## How scoring works
+## How it works
+
+Every patient gets a priority score. The queue is sorted descending by score — highest score is seen first.
+
+### Score formula
 
 ```
-score = (severityScore × severityWeight + waitScore × waitTimeWeight) × fairnessBoost
+baseScore = (severityScore × severityWeight) + (waitScore × waitTimeWeight)
+score     = baseScore × fairnessBoost
 ```
 
-| Severity | Base score |
+### Severity score
+
+A fixed value based on clinical urgency:
+
+| Severity | Score |
 |---|---|
 | high | 150 |
 | medium | 75 |
 | low | 25 |
 
-`fairnessBoost` starts at `1`. Once `waitTime` exceeds the threshold for that severity, it grows as `1 + (excess / 30)` — preventing low-severity patients from waiting indefinitely.
+### Wait score
+
+Normalizes wait time to a 0–100 scale:
+
+```
+waitScore = min((waitTime / 60) × 100, 100)
+```
+
+A patient who has waited 60+ minutes gets the maximum wait score of 100. Someone who just arrived gets close to 0.
+
+### Fairness boost
+
+This is the starvation-prevention mechanism. It's a multiplier that starts at `1` (no effect) and grows once a patient's wait time exceeds their severity threshold:
+
+```
+boost = 1                                if waitTime ≤ threshold
+boost = 1 + (waitTime - threshold) / 30  if waitTime > threshold
+```
+
+Default thresholds:
+
+| Severity | Threshold |
+|---|---|
+| high | 20 min |
+| medium | 40 min |
+| low | 60 min |
+
+Because the boost is a **multiplier on the entire score**, it compounds — a patient who has blown past their threshold doesn't just get a small additive bump, their whole score scales up. A low-severity patient waiting 3 hours will eventually outrank a medium-severity patient who just arrived.
+
+### Example
+
+Two patients, default config (`severityWeight: 0.6, waitTimeWeight: 0.2`):
+
+| | P001 | P002 |
+|---|---|---|
+| Severity | low (25) | high (150) |
+| Wait time | 120 min | 10 min |
+| Wait score | 100 | 16.7 |
+| Threshold | 60 min | 20 min |
+| Boost | 1 + (60/30) = 3.0 | 1.0 |
+| Base score | (25×0.6) + (100×0.2) = 35 | (150×0.6) + (16.7×0.2) = 93.3 |
+| Final score | 35 × 3.0 = **105** | 93.3 × 1.0 = **93.3** |
+
+P001 (low severity, waited 2 hours) ranks above P002 (high severity, just arrived). This is intentional — the fairness boost exists precisely for this scenario.
+
+If this isn't the behavior you want, increase `maxWaitTimeForLowPriority` to delay when the boost kicks in, or increase `severityWeight` to make severity harder to overcome.
 
 ---
 
