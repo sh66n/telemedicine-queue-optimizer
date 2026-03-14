@@ -1,4 +1,4 @@
-# @sh66n/telemedicine-queue-optimizer
+# Telemedicine Queue Optimizer
 
 Priority queue scheduling for telemedicine. Moves urgent patients up without starving everyone else.
 
@@ -44,70 +44,32 @@ const optimized = optimizer.optimize(patients);
 
 ---
 
-### Methods
+### `QueueOptimizer`
 
-#### `optimize(patients)` → `Patient[]`
-Reorders patients by priority score. Does not mutate input.
+| Method | Returns | Notes |
+|---|---|---|
+| `optimize(patients)` | `Patient[]` | Reorders by priority score. Does not mutate input. |
+| `generateQueueOrder(patients, startTime?)` | `QueueOrder[]` | Attaches timing to each patient. Pass output of `optimize()`, not raw patients. |
+| `compareQueues(patients, startTime?)` | `ComparisonResult` | Runs FIFO and optimized side by side. Returns `{ baseline: { queue, metrics }, optimized: { queue, metrics }, improvements }`. |
+| `getScores(patients)` | `{ patientId, score, explanation }[]` | Shows why each patient ranked where they did. |
+| `validate(patients)` | `{ valid, errors[] }` | Checks config weights sum to 1.0 and all patient fields are valid. |
+| `getConfig()` | `QueueOptimizationConfig` | |
+| `setConfig(partial)` | `void` | Merges into existing config. Takes effect immediately. |
 
-#### `generateQueueOrder(patients, startTime?)` → `QueueOrder[]`
-Attaches estimated start/end/wait times. Pass the result of `optimize()`, not raw patients.
-
-#### `compareQueues(patients, startTime?)` → `ComparisonResult`
-Runs FIFO and optimized side by side. Returns both queues with metrics and improvement deltas.
-
-```typescript
-const { baseline, optimized, improvements } = optimizer.compareQueues(patients);
-// baseline.queue, baseline.metrics
-// optimized.queue, optimized.metrics
-// improvements.waitTimeReduction, improvements.fairnessImprovement
-```
-
-#### `getScores(patients)` → `Array<{ patientId, score, explanation }>`
-Shows why each patient ranked where they did.
-
-#### `validate(patients)` → `{ valid, errors[] }`
-Validates config weights and patient fields before running.
-
-#### `getConfig()` → `QueueOptimizationConfig`
-#### `setConfig(partial)` → `void`
-
----
-
-### `new QueueSimulator(config)`
+### `QueueSimulator`
 
 Wraps `QueueOptimizer` with richer output — recommendations, HTML reports, multi-config testing.
 
-#### `simulate(patients, startTime?)` → `OptimizationResult`
-
-```typescript
-{
-  baselineQueue: QueueOrder[],
-  optimizedQueue: QueueOrder[],
-  baselineMetrics: Metrics,
-  optimizedMetrics: Metrics,
-  improvements: {
-    waitTimeReduction: string,
-    fairnessImprovement: string,
-    utilizationImprovement: string,
-    throughputImprovement: string,
-  },
-  recommendations: string[]
-}
-```
-
-#### `simulateWithConfig(patients, config)` → `OptimizationResult`
-One-off simulation with a different config, without mutating the instance.
-
-#### `runMultipleSimulations(patients, configs[])` → `Array<{ name, result }>`
-Test multiple configs at once.
-
-#### `compareCustomQueues(baseline, optimized)` → `{ baselineMetrics, optimizedMetrics, improvements }`
-Compare two arbitrary patient orderings you supply yourself.
-
-#### `getDetailedMetrics(queueOrders)` → `{ byPosition[], bySeverity }`
-#### `exportResult(result)` → `string` (full JSON)
-#### `exportSummary(result)` → `string` (compact JSON)
-#### `generateHTMLReport(result)` → `string`
+| Method | Returns | Notes |
+|---|---|---|
+| `simulate(patients, startTime?)` | `OptimizationResult` | Runs full comparison. Returns both queues, both metrics sets, improvements, and recommendations. |
+| `simulateWithConfig(patients, config)` | `OptimizationResult` | One-off run with a different config without mutating the instance. |
+| `runMultipleSimulations(patients, configs[])` | `{ name, result }[]` | Test multiple configs at once. |
+| `compareCustomQueues(baseline, optimized)` | `{ baselineMetrics, optimizedMetrics, improvements }` | Compare two orderings you supply yourself. |
+| `getDetailedMetrics(queueOrders)` | `{ byPosition[], bySeverity }` | Breaks down metrics by queue position and severity group. |
+| `exportResult(result)` | `string` | Full JSON. |
+| `exportSummary(result)` | `string` | Compact JSON. |
+| `generateHTMLReport(result)` | `string` | Standalone HTML report. |
 
 ---
 
